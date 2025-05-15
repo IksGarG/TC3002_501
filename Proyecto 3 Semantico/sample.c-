@@ -1,0 +1,58 @@
+/* Full C- test: gcd, fib, factorial, arrays, recursion, loops */
+
+int gcd(int a, int b) {
+  while (b != 0) {
+    int r;
+    r = a - (a / b) * b;
+    a = b;
+    b = r;
+  }
+  return a;
+}
+
+int fib(int n) {
+  if (n == 0) {
+    return 0;
+  } else {
+    if (n == 1) {
+      return 1;
+    } else {
+      return fib(n - 1) + fib(n - 2);
+    }
+  }
+}
+
+int factorial(int n) {
+  if (n == 0) {
+    return 1;
+  } else {
+    return n * factorial(n - 1);
+  }
+}
+
+void main() {
+  int N;
+  input(N);
+  output(N);
+
+  /* test gcd */
+  int x;
+  x = N + 2;
+  output(gcd(N, x));
+
+  /* test fib */
+  output(fib(N));
+
+  /* test factorial */
+  output(factorial(N));
+
+  /* fill an array and print squares */
+  int arr[10];
+  int i;
+  i = 0;
+  while (i < 10) {
+    arr[i] = i * i;
+    output(arr[i]);
+    i = i + 1;
+  }
+}

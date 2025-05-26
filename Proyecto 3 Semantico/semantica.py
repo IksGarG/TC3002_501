@@ -1,4 +1,6 @@
-# semantica.py
+# Analizador Semántico
+# Autor: Iker Garcia German
+# Fecha: 2025-05-14
 from globalTypes import *
 from symtab import *
 
@@ -34,6 +36,7 @@ def insertar_nodo(t):
     """
     Inserta nodos en la tabla de símbolos.
     Se ejecuta en preorder.
+    Tuve algunos probelmas con el postorder, así que esta funcion es con ayuda de ChatGPT
     """
     global skip_simple_params
 
@@ -63,7 +66,6 @@ def insertar_nodo(t):
         for pname in param_names:
             st_insert(pname, t.lineno)
         skip_simple_params.update(param_names)
-        # TODO: Soporte completo de arreglos (var ID[NUM] y parámetros ID[])
         return
 
     # --- Nuevo bloque compuesto { ... } ---

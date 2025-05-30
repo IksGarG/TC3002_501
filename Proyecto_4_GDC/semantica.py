@@ -7,10 +7,8 @@ from symtab import *
 Error = False
 skip_simple_params = set()
 
-# Stack for tracking current function return types (if needed by tabla, can keep)
-current_func_returns_for_tabla = [] # Renamed to avoid confusion
-
-# Stack for tracking current function return types for the check_node pass
+# This stack is used to track the return types of functions during the symbol table pass
+current_func_returns_for_tabla = [] 
 check_pass_func_returns_stack = []
 
 def tipo_error(t, message, expected_type=None):
@@ -71,7 +69,6 @@ def insertar_nodo(t):
             if not st_insert(p_node.name, p_node.lineno):
                  tipo_error(p_node, f"Parámetro '{p_node.name}' ya definido o error de inserción.")
             skip_simple_params.add(p_node.name)
-        # This stack is built up by tabla() but not used by the fixed check_node
         current_func_returns_for_tabla.append(t.type)
         return
 
@@ -114,24 +111,16 @@ def insertar_nodo(t):
 
 def salir_nodo(t):
     """
-    Cierra scopes abiertos en insertar_nodo.
-    NOTA: This function is NOT currently used by the main semantica() logic's traversals
-    in a way that would clear _symtab_stack before printSymTab in tabla().
-    If it were used in a single pass system, current_func_returns_for_tabla would also be popped here.
+    Cierra scopes abiertos en insertar_nodo. \n
+    Comprueba tipos en postorder. \n
+    Uses `check_pass_func_returns_stack` for return type checks.
     """
     if t.nodekind == NodeKind.StmtK and t.stmt == StmtKind.DeclK and t.child[1] is not None:
-        # current_func_returns_for_tabla.pop() if current_func_returns_for_tabla else None # If used by tabla pass
         st_exit_scope()
     elif t.nodekind == NodeKind.StmtK and t.stmt == StmtKind.CompoundK:
         st_exit_scope()
         pass
 
-
-def check_node(t):
-    """
-    Comprueba tipos en postorder.
-    Uses `check_pass_func_returns_stack` for return type checks.
-    """
     global check_pass_func_returns_stack # Ensure we are using the correct stack
 
     if t.nodekind == NodeKind.ExpK:
@@ -218,7 +207,6 @@ def check_node(t):
                  tipo_error(target_node, "Variable/elemento de arreglo para input debe ser de tipo Integer", ExpType.Integer)
 
         elif t.stmt == StmtKind.ReturnK:
-            # MODIFICATION: Use check_pass_func_returns_stack
             expected_return_type = check_pass_func_returns_stack[-1] if check_pass_func_returns_stack else ExpType.Void
             return_expr_node = t.child[0]
 
@@ -228,7 +216,7 @@ def check_node(t):
             else: # Espera Integer
                 if return_expr_node is None:
                     tipo_error(t, "Función no-void debe retornar un valor Integer")
-                elif return_expr_node.type != ExpType.Integer: # Assuming C- functions only return Integer or Void
+                elif return_expr_node.type != ExpType.Integer:
                     tipo_error(return_expr_node, f"Tipo de valor retornado no coincide con la declaración de la función (se esperaba {expected_return_type.name})", ExpType.Integer)
 
 
@@ -240,7 +228,7 @@ def tabla(tree, imprime=True):
     st_enter_scope()
     init_builtins()
 
-    traverse(tree, insertar_nodo, lambda t: None) # No post-processor, so scopes/stacks build up
+    traverse(tree, insertar_nodo, lambda t: None)
 
     if imprime:
         print("=== Tablas de símbolos ===")
@@ -251,23 +239,18 @@ def pre_check_pass(t):
     """Pre-order visitor for the type checking pass."""
     global check_pass_func_returns_stack
     # If entering a function, push its return type (from AST node) to the dedicated stack
-    if t.nodekind == NodeKind.StmtK and t.stmt == StmtKind.DeclK and t.child[1] is not None: # Is a function declaration
+    if t.nodekind == NodeKind.StmtK and t.stmt == StmtKind.DeclK and t.child[1] is not None:
         check_pass_func_returns_stack.append(t.type)
-    # If type checking needs its own scope management for st_lookup (though symtab is already built)
-    # you would call st_enter_scope() here for StmtKind.CompoundK and function DeclK.
-    # However, st_lookup will search the existing scopes built by tabla().
 
 def combined_post_check_pass(t):
     """Combined post-order visitor for the type checking pass."""
     global check_pass_func_returns_stack
-    check_node(t) # Perform type checking first
 
     # If exiting a function, pop its return type from the dedicated stack
-    if t.nodekind == NodeKind.StmtK and t.stmt == StmtKind.DeclK and t.child[1] is not None: # Is a function declaration
+    if t.nodekind == NodeKind.StmtK and t.stmt == StmtKind.DeclK and t.child[1] is not None: 
         if check_pass_func_returns_stack:
             check_pass_func_returns_stack.pop()
-    # If st_enter_scope() was used in pre_check_pass, then st_exit_scope() here too.
-
+            
 def semantica(tree, imprime=True):
     """Driver semántico: tabla + chequeo de tipos con recuperación."""
     global Error, check_pass_func_returns_stack

@@ -1,3 +1,7 @@
+# cgen.py - Code generation for MIPS assembly from AST
+# Iker García German - Fernanda Cantu Ortega
+# Victor Manuel de la Cueva
+# 29 - 05 - 2025
 from globalTypes import *
 import symtab
 from symtab import st_lookup, st_enter_scope, st_exit_scope
@@ -59,8 +63,6 @@ def find_and_assign_local_offsets_recursive(statement_node, current_offset_ref, 
     """
     Recursively assign stack offsets to local variables and arrays.
     """
-    # current_offset_ref is a list [value] to pass by reference
-    # This function will modify current_offset_ref[0]
     curr = statement_node
     while curr:
         if curr.nodekind == NodeKind.StmtK:
@@ -113,8 +115,8 @@ def find_and_assign_local_offsets_recursive(statement_node, current_offset_ref, 
 def genDecl(node, out):
     """
     Generate MIPS code for a function, including prologue, body, and epilogue.
+    This function was fixed and optimized with the help of GeminiAI
     """
-    # Sólo funciones; las vars globales van en .data
     if node.child[1] is None and node.name != 'main':
         pass
 
@@ -132,8 +134,8 @@ def genDecl(node, out):
     emit("addi $fp, $sp, 8", out)
 
     # --- Calculate offsets ---
-    param_base_offset_val = -8 # Stack memory for params/locals starts below $fp-8 (where $ra is)
-    current_offset_val = param_base_offset_val # Will decrease as space is allocated
+    param_base_offset_val = -8
+    current_offset_val = param_base_offset_val
 
     param_list_for_reg_copy = []
     # 1) Parámetros
@@ -165,21 +167,17 @@ def genDecl(node, out):
     current_offset_val = local_current_offset_ref[0] # Update current_offset_val with result from recursive calls
 
     # Adjust final stack pointer for all locals and parameters
-    # Space needed beyond the initial $sp adjustment for $ra, $fp
-    # param_base_offset_val was -8. current_offset_val is the final extent.
     stack_space_for_vars = abs(current_offset_val) - abs(param_base_offset_val)
     if stack_space_for_vars > 0:
         emit(f"addi $sp, $sp, -{stack_space_for_vars}", out)
 
-    # Copiar $a0-$a3 (params passed in regs) to their stack slots
-    if name != 'main': # 'main' usually has no standard parameters passed this way
+    if name != 'main':
         for reg_idx, stack_off in param_list_for_reg_copy:
             if reg_idx < 4: # $a0, $a1, $a2, $a3
                 emit(f"sw $a{reg_idx}, {stack_off}($fp)", out)
 
     # Generate code for the function body
     if node.child[1]: # node.child[1] is the CompoundK (body)
-        # genStmt for CompoundK will handle its own st_enter_scope / st_exit_scope
         genStmt(node.child[1], out)
 
     # Function epilogue: restore frame pointer and return
@@ -423,11 +421,11 @@ def genExp(node, out):
             emit("div $t1, $a0", out)
             emit("mflo $a0", out)
         elif op == TokenType.LT: emit("slt $a0, $t1, $a0", out)
-        elif op == TokenType.LE: emit("sle $a0, $t1, $a0", out) # sle no es instrucción real, necesita secuencia
-        elif op == TokenType.GT: emit("sgt $a0, $t1, $a0", out) # sgt no es instrucción real, necesita secuencia
-        elif op == TokenType.GE: emit("sge $a0, $t1, $a0", out) # sge no es instrucción real, necesita secuencia
-        elif op == TokenType.EQ: emit("seq $a0, $t1, $a0", out) # seq no es instrucción real, necesita secuencia
-        elif op == TokenType.NE: emit("sne $a0, $t1, $a0", out) # sne no es instrucción real, necesita secuencia
+        elif op == TokenType.LE: emit("sle $a0, $t1, $a0", out)
+        elif op == TokenType.GT: emit("sgt $a0, $t1, $a0", out) 
+        elif op == TokenType.GE: emit("sge $a0, $t1, $a0", out) 
+        elif op == TokenType.EQ: emit("seq $a0, $t1, $a0", out) 
+        elif op == TokenType.NE: emit("sne $a0, $t1, $a0", out) 
         else: emit(f"# op no implementada: {op}", out)
         # Nota: MIPS no tiene sle, sgt, sge, seq, sne directamente.
         # slt es real. Para las otras, se usan combinaciones de slt y beq/bne o xori.
